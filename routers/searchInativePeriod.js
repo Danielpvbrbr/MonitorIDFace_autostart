@@ -7,14 +7,8 @@ const { loadConfig } = require("../config");
 const config = loadConfig();
 let DBName = config?.DB_DATABASE;
 
-/**
- * Lista de IPs que devem ser ignorados
- */
 const BLOCKED_IPS = ['3.3.3.3', '6.6.6.6', '4.4.4.4', '5.5.5.5', '1.1.1.1'];
 
-/**
- * Valida se o IP está no formato correto e não está na lista de bloqueio
- */
 function isValidIP(ip) {
     if (!ip || typeof ip !== 'string') {
         return false;
@@ -44,9 +38,6 @@ function isValidIP(ip) {
     return true;
 }
 
-/**
- * Verifica e remove usuários com data de acesso expirada de todos os equipamentos
- */
 const searchInativePeriod = async () => {
     logger.info("\n--- Verificando usuários com acesso expirado ---");
     const conn = await connection(DBName);
@@ -69,7 +60,7 @@ const searchInativePeriod = async () => {
 
         // Processa cada equipamento sequencialmente
         for (let equip of rows) {
-            const { NR_IP, ID_EQUIPAMENTO } = equip;
+            const { NR_IP, ID_EQUIPAMENTO, ENT_SAI } = equip;
 
             // Valida formato do IP
             if (!isValidIP(NR_IP)) {
@@ -87,7 +78,7 @@ const searchInativePeriod = async () => {
                     continue;
                 }
 
-                await logAcesso(NR_IP, ID_EQUIPAMENTO)
+                await logAcesso(NR_IP, ID_EQUIPAMENTO, ENT_SAI)
 
                 // Busca pessoas com acesso expirado
                 const [pessoas] = await conn.query(

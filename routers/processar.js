@@ -53,9 +53,6 @@ function isValidIP(ip) {
     return true;
 }
 
-/**
- * Marca registros como executados com erro
- */
 async function marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, mensagem) {
     try {
         await conn.query(
@@ -69,12 +66,8 @@ async function marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, mensagem
     }
 }
 
-/**
- * Processa um único comando (inclusão ou exclusão de usuário)
- */
 async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
     try {
-        // INCLUIR USUÁRIO
         if (COMANDO === "inc_usuario") {
             logger.info(`Incluindo usuário ID: ${ID_PESSOA}`);
 
@@ -112,7 +105,6 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
             }
         }
 
-        // EXCLUIR USUÁRIO
         else if (COMANDO === "exc_usuario") {
             logger.info(`Excluindo usuário ID: ${ID_PESSOA}`);
 
@@ -144,7 +136,6 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
             }
         }
 
-        // COMANDO DESCONHECIDO
         else {
             await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Comando desconhecido');
             logger.info(`Comando desconhecido: ${COMANDO}`);
@@ -158,9 +149,7 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
     }
 }
 
-/**
- * Processa um equipamento com todos seus comandos
- */
+
 async function processarEquipamento(conn, IP_EQUIPAMENTO, comandos) {
     logger.info(`\n--- Processando equipamento ${IP_EQUIPAMENTO} (${comandos.length} comandos) ---`);
 
@@ -190,12 +179,7 @@ async function processarEquipamento(conn, IP_EQUIPAMENTO, comandos) {
     }
 }
 
-/**
- * Função principal que processa comandos de inclusão e exclusão de usuários
- * Comandos possíveis: 'inc_usuario' ou 'exc_usuario'
- */
 async function processar() {
-    // Verifica se já existe um processamento em andamento
     if (isProcessing) {
         logger.warn('Processamento já em andamento. Aguardando conclusão...');
         return;
@@ -213,10 +197,8 @@ async function processar() {
     }
 
     try {
-        // 1. Remove usuários com acesso expirado
         await searchInativePeriod();
 
-        // 2. Marca IPs bloqueados como erro ANTES de processar
         await conn.query(
             `UPDATE controle_equipamento 
              SET EXECUTADO='S', DATA_HORA=NOW(), LOG='IP bloqueado'
@@ -225,7 +207,6 @@ async function processar() {
             BLOCKED_IPS
         );
 
-        // 3. Busca comandos pendentes (já excluindo IPs bloqueados)
         const [rowsEquip] = await conn.query(
             `SELECT COMANDO, IP_EQUIPAMENTO, ID_PESSOA 
              FROM controle_equipamento 
@@ -239,14 +220,12 @@ async function processar() {
             return;
         }
 
-        // 4. Agrupa por equipamento
         const equipamentosMap = new Map();
 
         for (const line of rowsEquip) {
             const { COMANDO, IP_EQUIPAMENTO, ID_PESSOA } = line;
 
             if (!isValidIP(IP_EQUIPAMENTO)) {
-                // Marca IP inválido como erro
                 await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'IP inválido');
                 continue;
             }

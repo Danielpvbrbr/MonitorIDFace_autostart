@@ -7,6 +7,12 @@ const connection = async (database) => {
     password: "adr@3412",
     connectTimeout: 10000, // Timeout de 10 segundos
   };
+  // const config = {
+  //   host: 'localhost',
+  //   user: 'root',
+  //   password: "adr@3412",
+  //   connectTimeout: 10000, // Timeout de 10 segundos
+  // };
 
   if (database) {
     config.database = database;
@@ -22,7 +28,7 @@ const connection = async (database) => {
       codigo: error.code,
       timestamp: new Date().toISOString()
     });
-    
+
     // Retorna null em vez de lançar erro
     return null;
   }
