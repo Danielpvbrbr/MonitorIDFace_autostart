@@ -1,6 +1,6 @@
 {
   "name": "monitor_autostart",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Monitor Facial IDFace - Sistema de Controle",
   "license": "ISC",
   "author": "Daniel do nascimento",
@@ -13,7 +13,7 @@
     "dev": "chcp 65001 && nodemon --signal SIGINT index.js | npx pino-pretty",
     "clean": "if exist dist rmdir /s /q dist",
     "prebuild": "npm run clean && mkdir dist",
-    "build": "caxa --input . --output \"dist/MonitorIDFace_autostart.exe\" -- \"{{caxa}}/node_modules/.bin/node\" \"{{caxa}}/index.js\"",
+    "build": "caxa --input . --output \"dist/MonitorIDFace_autostart_v1.0.5.exe\" -- \"{{caxa}}/node_modules/.bin/node\" \"{{caxa}}/index.js\"",
     "rebuild": "npm run clean && npm run build"
   },
   "dependencies": {

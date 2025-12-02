@@ -11,6 +11,7 @@ const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP, ID_EQUIPAMENTO 
         );
 
         const pessoa = rows[0];
+        
         if (!pessoa) return false;
 
         const { TIPO_VISITA, NOME } = pessoa;
@@ -20,10 +21,13 @@ const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP, ID_EQUIPAMENTO 
         logger.info(`Removendo visitante ${NOME} (ID ${ID_PESSOA}) do equipamento ${IP} — Saída detectada`);
 
         const resultado = await deleteUser({ IP, user_id: ID_PESSOA });
+       
         if (!resultado) return false;
 
         await conn.query(`UPDATE pessoa SET ATIVO=0 WHERE ID_PESSOA=?`, [ID_PESSOA]);
+       
         logger.info(`Visitante ${NOME} removido e inativado com sucesso.`);
+       
         return true;
 
     } catch (err) {

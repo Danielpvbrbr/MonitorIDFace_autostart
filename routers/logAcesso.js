@@ -42,6 +42,8 @@ const logAcesso = async (IP, ID_EQUIPAMENTO) => {
             return;
         }
 
+        logger.info("VERIFICANDO SAIDA DE VISITANTE.....");
+        
         for (const log of logs) {
 
             if (Number(log.user_id) == 0) {
@@ -71,13 +73,6 @@ const logAcesso = async (IP, ID_EQUIPAMENTO) => {
                 continue;
             }
 
-            // Insere log se não existir
-            const [res] = await conn.query(
-                `INSERT INTO log_acesso (STATUS, ID_PESSOA, ID_EQUIPAMENTO, DATA_HORA, RECNOID, ENT_SAI)
-                 VALUES (1, ?, ?, ?, ?, ?)`,
-                [log.user_id, ID_EQUIPAMENTO, dataHora, log.id, EQUIP[0].ENT_SAI]
-            );
-
             await inativarVisitante({
                 ID_PESSOA: log.user_id,
                 ENT_SAI: EQUIP[0].ENT_SAI,
@@ -85,6 +80,13 @@ const logAcesso = async (IP, ID_EQUIPAMENTO) => {
                 IP,
                 ID_EQUIPAMENTO
             })
+
+            // Insere log se não existir
+            const [res] = await conn.query(
+                `INSERT INTO log_acesso (STATUS, ID_PESSOA, ID_EQUIPAMENTO, DATA_HORA, RECNOID, ENT_SAI)
+                 VALUES (1, ?, ?, ?, ?, ?)`,
+                [log.user_id, ID_EQUIPAMENTO, dataHora, log.id, EQUIP[0].ENT_SAI]
+            );
 
             logger.info("Inserido novo log:", res.insertId);
         }
