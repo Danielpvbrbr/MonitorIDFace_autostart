@@ -244,7 +244,6 @@ async function processar() {
     } catch (err) {
         logger.error("Erro no processamento geral:", err);
     } finally {
-        await conn.end();
         isProcessing = false;
         logger.info("\n=== Processamento finalizado ===\n");
     }

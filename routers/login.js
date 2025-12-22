@@ -50,7 +50,7 @@ async function login(IP) {
                 try {
                     await conn.query(
                         `UPDATE equipamento SET GUI_FACIAL=? WHERE NR_IP=?`,
-                        ["", IP]
+                        [" ", IP]
                     );
                 } catch (err2) {
                     logger.error(`Erro ao limpar token no banco (fallback): ${err2.message}`);

@@ -127,9 +127,10 @@ const searchInativePeriod = async () => {
         }
     } catch (err) {
         logger.error("Erro em searchInativePeriod:", err);
-    } finally {
-        await conn.end();
     }
+    //  finally {
+    //     await conn.end();
+    // }
 };
 
 module.exports = { searchInativePeriod };

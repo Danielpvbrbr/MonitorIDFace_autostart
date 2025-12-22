@@ -43,7 +43,7 @@ const logAcesso = async (IP, ID_EQUIPAMENTO) => {
         }
 
         logger.info("VERIFICANDO SAIDA DE VISITANTE.....");
-        
+
         for (const log of logs) {
 
             if (Number(log.user_id) == 0) {
@@ -81,22 +81,22 @@ const logAcesso = async (IP, ID_EQUIPAMENTO) => {
                 ID_EQUIPAMENTO
             })
 
+            const [nv_equip] = await conn.query(`SELECT ID_NIVEL_ACESSO FROM equipamento_nivel_acesso WHERE ID_EQUIPAMENTO=?`, [ID_EQUIPAMENTO]);
+
             // Insere log se não existir
             const [res] = await conn.query(
-                `INSERT INTO log_acesso (STATUS, ID_PESSOA, ID_EQUIPAMENTO, DATA_HORA, RECNOID, ENT_SAI)
-                 VALUES (1, ?, ?, ?, ?, ?)`,
-                [log.user_id, ID_EQUIPAMENTO, dataHora, log.id, EQUIP[0].ENT_SAI]
+                `INSERT INTO log_acesso (STATUS, ID_PESSOA, ID_EQUIPAMENTO, DATA_HORA, RECNOID, ENT_SAI, ID_NIVEL_ACESSO)
+                 VALUES (1, ?, ?, ?, ?, ?, ?)`,
+                [log.user_id, ID_EQUIPAMENTO, dataHora, log.id, EQUIP[0].ENT_SAI, nv_equip[0].ID_NIVEL_ACESSO]
             );
 
-            logger.info("Inserido novo log:", res.insertId);
+            logger.info(`Inserido novo log: ${res.insertId}`);
         }
 
     } catch (err) {
         console.error("ERRO:", err);
         logger.error(`Erro ao processar logs de ${IP}: ${err.message}`);
         logger.error(`Stack: ${err.stack}`);
-    } finally {
-        await conn.end();
     }
 };
 

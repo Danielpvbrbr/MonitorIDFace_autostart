@@ -1,37 +1,32 @@
 const mysql = require('mysql2/promise');
 
-const connection = async (database) => {
-  const config = {
-    host: 'pontodisnibra.ddns.net',
-    user: 'root',
-    password: "adr@3412",
-    connectTimeout: 10000, // Timeout de 10 segundos
-  };
-  // const config = {
-  //   host: 'localhost',
-  //   user: 'root',
-  //   password: "adr@3412",
-  //   connectTimeout: 10000, // Timeout de 10 segundos
-  // };
+const pools = {};
 
-  if (database) {
-    config.database = database;
+const connection = async (database) => {
+  if (!database) {
+    throw new Error('Database não informada');
   }
 
-  try {
-    const conn = await mysql.createConnection(config);
-    return conn;
-  } catch (error) {
-    console.error('Erro ao conectar ao banco de dados:', {
-      host: config.host,
-      erro: error.message,
-      codigo: error.code,
-      timestamp: new Date().toISOString()
+  // cria o pool uma única vez por database
+  if (!pools[database]) {
+    pools[database] = mysql.createPool({
+      host: 'pontodisnibra.ddns.net',
+      user: 'root',
+      password: 'adr@3412',
+      port: 3306,
+      database,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      connectTimeout: 15000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
     });
 
-    // Retorna null em vez de lançar erro
-    return null;
+    console.log(`[MYSQL] Pool criado para database: ${database}`);
   }
+
+  return pools[database];
 };
 
 module.exports = { connection };
