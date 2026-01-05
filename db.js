@@ -1,13 +1,34 @@
 const mysql = require('mysql2/promise');
 
+let globalPool = null;
 const pools = {};
 
-const connection = async (database) => {
+const getGlobalPool = () => {
+  if (!globalPool) {
+    globalPool = mysql.createPool({
+      host: 'pontodisnibra.ddns.net',
+      user: 'root',
+      password: 'adr@3412',
+      port: 3306,
+      waitForConnections: true,
+      connectionLimit: 5,
+      queueLimit: 0,
+      connectTimeout: 15000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+    });
+
+    console.log('[MYSQL] Pool global criado (sem database)');
+  }
+
+  return globalPool;
+};
+
+const getDatabasePool = (database) => {
   if (!database) {
     throw new Error('Database não informada');
   }
 
-  // cria o pool uma única vez por database
   if (!pools[database]) {
     pools[database] = mysql.createPool({
       host: 'pontodisnibra.ddns.net',
@@ -27,6 +48,13 @@ const connection = async (database) => {
   }
 
   return pools[database];
+};
+
+const connection = (database = null) => {
+  if (!database) {
+    return getGlobalPool(); 
+  }
+  return getDatabasePool(database);
 };
 
 module.exports = { connection };

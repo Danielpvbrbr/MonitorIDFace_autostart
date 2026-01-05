@@ -89,7 +89,7 @@ function startServer(app) {
         console.log(colors.cyan + "╔════════════════════════════════════════════╗" + colors.reset);
         console.log(colors.cyan + `║       MONITOR FACIAL IDFACE - v${version}       ║` + colors.reset);
         console.log(colors.cyan + "╚════════════════════════════════════════════╝\n" + colors.reset);
-        console.log(colors.green + "   ✓ Servidor iniciado com sucesso!\n" + colors.reset);
+        console.log(colors.green + "   Servidor iniciado com sucesso!\n" + colors.reset);
         console.log(`   Porta: ${colors.yellow}${PORT}${colors.reset}`);
         console.log(`   Database: ${colors.yellow}${config.DB_DATABASE}${colors.reset}`);
         console.log(`   Login: ${colors.cyan}${config.LOGIN}${colors.reset}`);
@@ -110,7 +110,7 @@ async function autoStart(app) {
         const config = loadConfig();
         
         if (config && config.DB_DATABASE && config.LOGIN && config.PASSWORD && config.PORT) {
-            console.log(colors.green + "   ✓ Configuração encontrada!\n" + colors.reset);
+            console.log(colors.green + "    Configuração encontrada!\n" + colors.reset);
             console.log(`   Database: ${colors.yellow}${config.DB_DATABASE}${colors.reset}`);
             console.log(`   Login: ${colors.cyan}${config.LOGIN}${colors.reset}`);
             console.log(`   Porta: ${colors.cyan}${config.PORT}${colors.reset}\n`);
