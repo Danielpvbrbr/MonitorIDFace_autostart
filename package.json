@@ -1,6 +1,6 @@
 {
   "name": "monitor_autostart",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Monitor Facial IDFace - Sistema de Controle",
   "license": "ISC",
   "author": "Daniel do nascimento",
@@ -23,6 +23,7 @@
     "mysql2": "^3.14.4",
     "nodemon": "^3.1.10",
     "open": "^10.2.0",
+    "p-limit": "^2.3.0",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.2"
   }

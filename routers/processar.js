@@ -1,55 +1,35 @@
-const { getSession } = require("./getSession")
+const path = require('path');
+const { getSession } = require("./getSession");
 const { connection } = require("../db");
-const { addUser } = require("./addUser")
-const { deleteUser } = require("./deleteUser")
-const { searchInativePeriod } = require("./searchInativePeriod")
+const { addUser } = require("./addUser");
+const { deleteUser } = require("./deleteUser");
+const { searchInativePeriod } = require("./searchInativePeriod");
 const { loadConfig } = require("../config");
-const config = loadConfig();
-let DBName = config?.DB_DATABASE;
 const { logger } = require("../logger");
 
+// Importa o p-limit (certifique-se de ter instalado: npm install p-limit)
+const pLimit = require('p-limit');
 
-/**
- * Lista de IPs que devem ser ignorados
- */
+const config = loadConfig();
+let DBName = config?.DB_DATABASE;
+
+// --- CONFIGURAÇÕES DE PERFORMANCE ---
+// Quantos equipamentos processar SIMULTANEAMENTE (Ex: 50 equipamentos ao mesmo tempo)
+const CONCURRENCY_EQUIPAMENTOS = 50; 
+
+// Quantos comandos enviar SIMULTANEAMENTE para o MESMO equipamento (Cuidado: Hardware embarcado é fraco)
+// 2 é um número seguro. Se aumentar muito, o equipamento pode travar.
+const CONCURRENCY_COMANDOS_POR_EQUIP = 2; 
+
 const BLOCKED_IPS = ['3.3.3.3', '6.6.6.6', '4.4.4.4', '5.5.5.5', '1.1.1.1'];
-
-/**
- * Flag para controlar se já existe um processamento em andamento
- */
 let isProcessing = false;
 
-/**
- * Valida se o IP está no formato correto e não está na lista de bloqueio
- * @param {string} ip - Endereço IP para validar
- * @returns {boolean} - true se válido, false caso contrário
- */
 function isValidIP(ip) {
-    if (!ip || typeof ip !== 'string') {
-        return false;
-    }
-
-    if (BLOCKED_IPS.includes(ip)) {
-        return false;
-    }
-
-    if (!ip.includes(".")) {
-        return false;
-    }
-
+    if (!ip || typeof ip !== 'string') return false;
+    if (BLOCKED_IPS.includes(ip)) return false;
+    if (!ip.includes(".")) return false;
     const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-    if (!ipRegex.test(ip)) {
-        return false;
-    }
-
-    const octetos = ip.split('.');
-    for (const octeto of octetos) {
-        const num = parseInt(octeto, 10);
-        if (num < 0 || num > 255) {
-            return false;
-        }
-    }
-
+    if (!ipRegex.test(ip)) return false;
     return true;
 }
 
@@ -62,28 +42,24 @@ async function marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, mensagem
             [mensagem, ID_PESSOA, IP_EQUIPAMENTO, COMANDO]
         );
     } catch (err) {
-        logger.error(`Erro ao marcar como erro:`, err.message);
+        logger.error(`Erro ao marcar como erro: ${err.message}`);
     }
 }
 
 async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
     try {
         if (COMANDO === "inc_usuario") {
-            logger.info(`Incluindo usuário ID: ${ID_PESSOA}`);
-
             const [rowsPessoa] = await conn.query(
                 `SELECT NOME, FOTO_PESSOA FROM pessoa WHERE ID_PESSOA=?`,
                 [ID_PESSOA]
             );
 
             if (!rowsPessoa.length) {
-                logger.info(`Pessoa ${ID_PESSOA} não encontrada no banco`);
                 await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Pessoa não encontrada');
                 return false;
             }
 
             const { NOME, FOTO_PESSOA } = rowsPessoa[0];
-
             const resultado = await addUser(IP_EQUIPAMENTO, {
                 ID_PESSOA,
                 NOME,
@@ -99,22 +75,11 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
                 );
                 return true;
             } else {
-                //await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Error a adicionar');
-                logger.info(`Usuário ${NOME} não foi confirmado pelo equipamento`);
+                logger.info(`Usuário ${NOME} falha ao adicionar no ${IP_EQUIPAMENTO}`);
                 return false;
             }
-        }
-
+        } 
         else if (COMANDO === "exc_usuario") {
-            logger.info(`Excluindo usuário ID: ${ID_PESSOA}`);
-
-            const [rowsPessoa] = await conn.query(
-                `SELECT NOME FROM pessoa WHERE ID_PESSOA=?`,
-                [ID_PESSOA]
-            );
-
-            const NOME = rowsPessoa.length ? rowsPessoa[0].NOME : `ID ${ID_PESSOA}`;
-
             const resultado = await deleteUser({
                 IP: IP_EQUIPAMENTO,
                 user_id: ID_PESSOA
@@ -127,125 +92,121 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
                      WHERE ID_PESSOA=? AND IP_EQUIPAMENTO=? AND COMANDO=?`,
                     [ID_PESSOA, IP_EQUIPAMENTO, COMANDO]
                 );
-                logger.info(`Usuário ${NOME} excluído e confirmado`);
                 return true;
             } else {
                 await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Erro ao deletar');
-                logger.info(`Usuário ${NOME} não foi confirmado pelo equipamento`);
                 return false;
             }
-        }
-
+        } 
         else {
             await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Comando desconhecido');
-            logger.info(`Comando desconhecido: ${COMANDO}`);
             return false;
         }
-
     } catch (err) {
-        await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, `Err`);
-        logger.error(`Erro ao processar comando ${COMANDO} para pessoa ${ID_PESSOA}:`, err.message);
+        await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, `Err: ${err.message}`);
+        logger.error(`Erro comando ${COMANDO} pessoa ${ID_PESSOA}: ${err.message}`);
         return false;
     }
 }
 
-
 async function processarEquipamento(conn, IP_EQUIPAMENTO, comandos) {
-    logger.info(`\n--- Processando equipamento ${IP_EQUIPAMENTO} (${comandos.length} comandos) ---`);
-
-    try {
-        const session = await getSession(IP_EQUIPAMENTO);
-
-        if (!session) {
-            logger.info(`${IP_EQUIPAMENTO} ESTA OFF NA REDE. Pulando...`);
-            // Marca todos os comandos deste equipamento como erro
-            for (const item of comandos) {
-                await marcarComoErro(conn, IP_EQUIPAMENTO, item.ID_PESSOA, item.COMANDO, 'EQUIPAMENTO OFF NA REDE');
-            }
-            return;
-        }
-
-        for (const item of comandos) {
-            const { COMANDO, ID_PESSOA } = item;
-            await processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA);
-        }
-
-    } catch (err) {
-        logger.error(`Erro ao processar equipamento ${IP_EQUIPAMENTO}:`, err.message);
-        // Marca todos os comandos deste equipamento como erro
-        for (const item of comandos) {
-            await marcarComoErro(conn, IP_EQUIPAMENTO, item.ID_PESSOA, item.COMANDO, 'EQUIPAMENTO OFF NA REDE');
-        }
+    // Tenta obter sessão antes de iniciar os comandos para validar conexão
+    const session = await getSession(IP_EQUIPAMENTO);
+    
+    if (!session) {
+        // Se não conecta, marca tudo como erro rapidamente e aborta
+        // Usamos Promise.all para marcar no banco rápido em paralelo
+        const limitUpdate = pLimit(10); 
+        const updates = comandos.map(item => 
+            limitUpdate(() => marcarComoErro(conn, IP_EQUIPAMENTO, item.ID_PESSOA, item.COMANDO, 'OFFLINE'))
+        );
+        await Promise.all(updates);
+        return;
     }
+
+    // Limitador para não afogar O MESMO equipamento com requisições HTTP
+    const limitCmd = pLimit(CONCURRENCY_COMANDOS_POR_EQUIP);
+
+    const promises = comandos.map(item => {
+        return limitCmd(() => processarComando(conn, IP_EQUIPAMENTO, item.COMANDO, item.ID_PESSOA));
+    });
+
+    await Promise.all(promises);
 }
 
 async function processar() {
     if (isProcessing) {
-        logger.warn('Processamento já em andamento. Aguardando conclusão...');
+        console.log('Skip: Processamento anterior ainda rodando...');
         return;
     }
 
     isProcessing = true;
-    logger.info("\n=== Iniciando processamento ===");
-
     const conn = await connection(DBName);
 
     if (!conn) {
-        console.warn('Processamento ignorado - banco indisponível');
         isProcessing = false;
         return;
     }
 
     try {
+        // 1. Executa limpeza de inativos (sem await para não bloquear o fluxo de entrada se quiser extrema velocidade, 
+        // mas é mais seguro manter o await se o banco for o gargalo. Vamos manter await por segurança dos dados).
         await searchInativePeriod();
 
-        await conn.query(
-            `UPDATE controle_equipamento 
-             SET EXECUTADO='S', DATA_HORA=NOW(), LOG='IP bloqueado'
-             WHERE EXECUTADO='N' 
-             AND IP_EQUIPAMENTO IN (?, ?, ?, ?, ?)`,
-            BLOCKED_IPS
-        );
+        // 2. Limpa bloqueados
+        if (BLOCKED_IPS.length > 0) {
+             await conn.query(
+                `UPDATE controle_equipamento 
+                 SET EXECUTADO='S', DATA_HORA=NOW(), LOG='IP bloqueado'
+                 WHERE EXECUTADO='N' 
+                 AND IP_EQUIPAMENTO IN (?)`,
+                [BLOCKED_IPS]
+            );
+        }
 
+        // 3. Busca comandos pendentes
+        // DICA: Adicione um LIMIT se a tabela for monstruosa, mas se for fluxo contínuo, ok.
         const [rowsEquip] = await conn.query(
             `SELECT COMANDO, IP_EQUIPAMENTO, ID_PESSOA 
              FROM controle_equipamento 
              WHERE EXECUTADO='N' 
-             AND IP_EQUIPAMENTO NOT IN (?, ?, ?, ?, ?)`,
-            BLOCKED_IPS
+             AND IP_EQUIPAMENTO NOT IN (?)`,
+            [BLOCKED_IPS.length ? BLOCKED_IPS : ['0.0.0.0']]
         );
 
-        if (rowsEquip.length == 0) {
-            logger.info("Nenhum registro para executar");
+        if (rowsEquip.length === 0) {
+            isProcessing = false;
             return;
         }
 
+        logger.info(`Processando ${rowsEquip.length} comandos pendentes...`);
+
+        // 4. Agrupa por IP
         const equipamentosMap = new Map();
-
         for (const line of rowsEquip) {
-            const { COMANDO, IP_EQUIPAMENTO, ID_PESSOA } = line;
-
-            if (!isValidIP(IP_EQUIPAMENTO)) {
-                await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'IP inválido');
-                continue;
-            }
+            const { IP_EQUIPAMENTO } = line;
+            if (!isValidIP(IP_EQUIPAMENTO)) continue;
 
             if (!equipamentosMap.has(IP_EQUIPAMENTO)) {
                 equipamentosMap.set(IP_EQUIPAMENTO, []);
             }
-            equipamentosMap.get(IP_EQUIPAMENTO).push({ COMANDO, ID_PESSOA });
+            equipamentosMap.get(IP_EQUIPAMENTO).push(line);
         }
 
-        // 5. Processa cada equipamento sequencialmente (um por vez)
-        for (const [IP_EQUIPAMENTO, comandos] of equipamentosMap) {
-            await processarEquipamento(conn, IP_EQUIPAMENTO, comandos);
-        }
+        // 5. PROCESSAMENTO PARALELO DE EQUIPAMENTOS
+        // Aqui está a mágica da velocidade. Atacamos vários IPs ao mesmo tempo.
+        const limitEquip = pLimit(CONCURRENCY_EQUIPAMENTOS);
+        
+        const promises = Array.from(equipamentosMap.entries()).map(([IP, cmds]) => {
+            return limitEquip(() => processarEquipamento(conn, IP, cmds));
+        });
+
+        await Promise.all(promises);
 
     } catch (err) {
-        logger.error("Erro no processamento geral:", err);
+        logger.error("Erro fatal no loop de processamento:", err);
     } finally {
         isProcessing = false;
-        logger.info("\n=== Processamento finalizado ===\n");
     }
 }
 

@@ -143,7 +143,7 @@ const addUser = async (IP, data) => {
         };
 
     } catch (err) {
-        console.log(err)
+        //console.log(err)
         logger.error(`Erro ao adicionar usuário ${ID_PESSOA}:`, err.message);
 
         //  Retorna falha em caso de erro
