@@ -40,6 +40,8 @@ async function login(IP) {
             const sessionToken = response.data.session;
             global.sessionsMap.set(IP, sessionToken);
 
+            console.log(`Login bem-sucedido em ${IP}, token obtido.`);
+            console.log(`Token de sessão para ${IP}: ${sessionToken}`);
             try {
                 await conn.query(
                     `UPDATE equipamento SET GUI_FACIAL=? WHERE NR_IP=?`,

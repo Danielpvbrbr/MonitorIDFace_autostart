@@ -24,7 +24,7 @@ const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP, ID_EQUIPAMENTO 
        
         if (!resultado) return false;
 
-        await conn.query(`UPDATE pessoa SET ATIVO=0 WHERE ID_PESSOA=?`, [ID_PESSOA]);
+        await conn.query(`UPDATE pessoa SET FIM_ACESSO=NOW() WHERE ID_PESSOA=?`, [ID_PESSOA]);
        
         logger.info(`Visitante ${NOME} removido e inativado com sucesso.`);
        
