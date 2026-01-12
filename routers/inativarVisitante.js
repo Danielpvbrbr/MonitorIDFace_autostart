@@ -1,33 +1,68 @@
 const { logger } = require("../logger");
-const { deleteUser } = require('./deleteUser');
+const { deleteUser } = require("./deleteUser");
 
-const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP, ID_EQUIPAMENTO }) => {
+const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP }) => {
     if (ENT_SAI !== 1) return false;
 
     try {
         const [rows] = await conn.query(
-            `SELECT ID_PESSOA, TIPO_VISITA, NOME FROM pessoa WHERE ID_PESSOA=? AND ATIVO=1`,
+            `
+            SELECT 
+                TIPO_VISITA,
+                NOME,
+                ID_PESSOA_VISITADO
+            FROM pessoa
+            WHERE ID_PESSOA = ?
+              AND ATIVO = 1
+            `,
             [ID_PESSOA]
         );
 
         const pessoa = rows[0];
-        
         if (!pessoa) return false;
 
-        const { TIPO_VISITA, NOME } = pessoa;
+        const { TIPO_VISITA, NOME, ID_PESSOA_VISITADO } = pessoa;
 
-        if (!["C", "P"].includes(TIPO_VISITA)) return false;
+        logger.info(`Saída detectada — ${NOME} (ID ${ID_PESSOA})`);
 
-        logger.info(`Removendo visitante ${NOME} (ID ${ID_PESSOA}) do equipamento ${IP} — Saída detectada`);
+        await conn.query(
+            `UPDATE pessoa SET FIM_ACESSO = NOW() WHERE ID_PESSOA = ?`,
+            [ID_PESSOA]
+        );
 
-        const resultado = await deleteUser({ IP, user_id: ID_PESSOA });
-       
-        if (!resultado) return false;
+        // Acompanhante
+        if (TIPO_VISITA === "A") {
+            await conn.query(
+                `
+                UPDATE pacientes_local
+                SET QTD_ACOMPANHANTE = QTD_ACOMPANHANTE - 1
+                WHERE ID_PACIENTE = ?
+                  AND QTD_ACOMPANHANTE > 0
+                `,
+                [ID_PESSOA_VISITADO]
+            );
+        }
 
-        await conn.query(`UPDATE pessoa SET FIM_ACESSO=NOW() WHERE ID_PESSOA=?`, [ID_PESSOA]);
-       
-        logger.info(`Visitante ${NOME} removido e inativado com sucesso.`);
-       
+        // Visitante de paciente
+        if (TIPO_VISITA === "P") {
+            await conn.query(
+                `
+                UPDATE pacientes_local
+                SET QTD_VISITANTE_ATUAL = QTD_VISITANTE_ATUAL - 1
+                WHERE ID_PACIENTE = ?
+                  AND QTD_VISITANTE_ATUAL > 0
+                `,
+                [ID_PESSOA_VISITADO]
+            );
+        }
+
+        // Remove do equipamento
+        await deleteUser({
+            IP,
+            user_id: ID_PESSOA
+        });
+
+        logger.info(`Visitante ${NOME} inativado com sucesso.`);
         return true;
 
     } catch (err) {
@@ -37,3 +72,6 @@ const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP, ID_EQUIPAMENTO 
 };
 
 module.exports = { inativarVisitante };
+
+//QTD_VISITANTE_ATUAL = (P) Visita Paciente
+//QTD_ACOMPANHANTE = (A) Visita Acompanhante

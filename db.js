@@ -6,7 +6,8 @@ const pools = {};
 const getGlobalPool = () => {
   if (!globalPool) {
     globalPool = mysql.createPool({
-      host: 'pontodisnibra.ddns.net',
+      // host: 'pontodisnibra.ddns.net',
+      host: 'localhost',
       user: 'root',
       password: 'adr@3412',
       port: 3306,
@@ -31,7 +32,8 @@ const getDatabasePool = (database) => {
 
   if (!pools[database]) {
     pools[database] = mysql.createPool({
-      host: 'pontodisnibra.ddns.net',
+      //  host: 'pontodisnibra.ddns.net',
+      host: 'localhost',
       user: 'root',
       password: 'adr@3412',
       port: 3306,
@@ -52,7 +54,7 @@ const getDatabasePool = (database) => {
 
 const connection = (database = null) => {
   if (!database) {
-    return getGlobalPool(); 
+    return getGlobalPool();
   }
   return getDatabasePool(database);
 };
