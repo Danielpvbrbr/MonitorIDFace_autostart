@@ -13,9 +13,9 @@ const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP }) => {
                 ID_PESSOA_VISITADO
             FROM pessoa
             WHERE ID_PESSOA = ?
-              AND ATIVO = 1
+              AND ATIVO = 1 AND TIPO_PESSOA = ?
             `,
-            [ID_PESSOA]
+            [ID_PESSOA, 'VI']
         );
 
         const pessoa = rows[0];
@@ -26,8 +26,8 @@ const inativarVisitante = async ({ ID_PESSOA, ENT_SAI, conn, IP }) => {
         logger.info(`Saída detectada — ${NOME} (ID ${ID_PESSOA})`);
 
         await conn.query(
-            `UPDATE pessoa SET FIM_ACESSO = NOW() WHERE ID_PESSOA = ?`,
-            [ID_PESSOA]
+            `UPDATE pessoa SET FIM_ACESSO = NOW() WHERE ID_PESSOA = ? AND TIPO_PESSOA = ?`,
+            [ID_PESSOA, 'VI']
         );
 
         // Acompanhante
