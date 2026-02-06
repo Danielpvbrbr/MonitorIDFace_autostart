@@ -82,7 +82,7 @@ const addUser = async (IP, data) => {
 
         // 4. Se tiver foto, AGUARDA o envio
         if (FOTO_PESSOA) {
-            const imageBase64 = Buffer.from(FOTO_PESSOA).toString("base64");
+    
             const timestamp = Math.floor(Date.now() / 1000);
 
             const payloadPhoto = {
@@ -91,7 +91,7 @@ const addUser = async (IP, data) => {
                     {
                         user_id: ID_PESSOA,
                         timestamp,
-                        image: imageBase64
+                        image: FOTO_PESSOA
                     }
                 ]
             };

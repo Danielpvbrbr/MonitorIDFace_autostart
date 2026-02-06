@@ -2,10 +2,11 @@ const readline = require("readline");
 const { saveConfig, loadConfig } = require("./config");
 const { processar } = require("./routers/processar");
 const { connection } = require("./db");
-let TIME = 1000;
 const { version } = require("./package.json");
 
-// Cores ANSI
+let TIME = 1000;
+
+// Cores ANSI (Mantidas para quando rodar manual)
 const colors = {
     reset: "\x1b[0m",
     bright: "\x1b[1m",
@@ -73,7 +74,7 @@ async function promptConfig(app) {
         console.log(colors.green + "\n✓ Configuração salva com sucesso!" + colors.reset);
         console.log(`Banco selecionado: ${colors.yellow}${config.DB_DATABASE}${colors.reset}\n`);
 
-        // Aguarda 1 segundo e inicia o servidor automaticamente
+        // Aguarda 1 segundo e inicia o servidor
         setTimeout(() => {
             startServer(app);
         }, 1000);
@@ -82,40 +83,45 @@ async function promptConfig(app) {
 
 function startServer(app) {
     const config = loadConfig();
+
+    // Proteção caso config seja nulo
+    if (!config) {
+        console.error("Erro: Tentativa de iniciar servidor sem configuração.");
+        return;
+    }
+
     let PORT = config.PORT;
 
     app.listen(PORT, () => {
-        console.clear();
-        console.log(colors.cyan + "╔════════════════════════════════════════════╗" + colors.reset);
+        // Removido console.clear() para não apagar logs do serviço
+        console.log(colors.cyan + "\n╔════════════════════════════════════════════╗" + colors.reset);
         console.log(colors.cyan + `║       MONITOR FACIAL IDFACE - v${version}       ║` + colors.reset);
         console.log(colors.cyan + "╚════════════════════════════════════════════╝\n" + colors.reset);
+
         console.log(colors.green + "   Servidor iniciado com sucesso!\n" + colors.reset);
         console.log(`   Porta: ${colors.yellow}${PORT}${colors.reset}`);
         console.log(`   Database: ${colors.yellow}${config.DB_DATABASE}${colors.reset}`);
         console.log(`   Login: ${colors.cyan}${config.LOGIN}${colors.reset}`);
         console.log(`   Processamento: a cada ${TIME * 5}ms\n`);
-        console.log(colors.dim + "   Pressione Ctrl+C para encerrar\n" + colors.reset);
 
+        // Loop principal do sistema
         setInterval(processar, 5 * TIME);
     });
 }
 
 async function autoStart(app) {
-    console.clear();
-    console.log(colors.cyan + "╔════════════════════════════════════════════╗" + colors.reset);
-    console.log(colors.cyan + `║       MONITOR FACIAL IDFACE - v${version}       ║` + colors.reset);
-    console.log(colors.cyan + "╚════════════════════════════════════════════╝\n" + colors.reset);
+    // Removido console.clear()
+    console.log(colors.cyan + `\nIniciando Monitor Facial IDFace - v${version}` + colors.reset);
 
     try {
         const config = loadConfig();
-        
+
         if (config && config.DB_DATABASE && config.LOGIN && config.PASSWORD && config.PORT) {
-            console.log(colors.green + "    Configuração encontrada!\n" + colors.reset);
+            console.log(colors.green + "   Configuração encontrada!" + colors.reset);
             console.log(`   Database: ${colors.yellow}${config.DB_DATABASE}${colors.reset}`);
-            console.log(`   Login: ${colors.cyan}${config.LOGIN}${colors.reset}`);
-            console.log(`   Porta: ${colors.cyan}${config.PORT}${colors.reset}\n`);
+
             console.log(colors.dim + "   Iniciando servidor..." + colors.reset);
-            
+
             setTimeout(() => {
                 startServer(app);
             }, 1500);
@@ -123,13 +129,27 @@ async function autoStart(app) {
             throw new Error("Configuração incompleta");
         }
     } catch (error) {
-        // Se não encontrar configuração ou estiver incompleta
-        console.log(colors.yellow + "   Nenhuma configuração encontrada\n" + colors.reset);
-        console.log(colors.dim + "   Iniciando configuração inicial...\n" + colors.reset);
-        
-        setTimeout(async () => {
-            await promptConfig(app);
-        }, 1000);
+        // --- LÓGICA DE PROTEÇÃO DO SERVIÇO ---
+
+        // Verifica se existe um terminal interativo (Você rodando node index.js na mão)
+        if (process.stdout.isTTY) {
+            console.log(colors.yellow + "   Nenhuma configuração encontrada\n" + colors.reset);
+            console.log(colors.dim + "   Iniciando menu de configuração...\n" + colors.reset);
+
+            setTimeout(async () => {
+                await promptConfig(app);
+            }, 1000);
+        } else {
+            // Se cair aqui, é o SERVIÇO DO WINDOWS rodando.
+            // O serviço não tem teclado, então não pode chamar o promptConfig.
+            console.error("ERRO CRÍTICO (Modo Serviço):");
+            console.error("O arquivo 'config.json' não foi encontrado ou está inválido.");
+            console.error("O serviço não pode abrir o menu interativo.");
+            console.error("SOLUÇÃO: Pare o serviço, rode 'node index.js' manualmente para configurar e depois inicie o serviço.");
+
+            // Encerra com código de erro para o Windows saber que falhou
+            process.exit(1);
+        }
     }
 }
 

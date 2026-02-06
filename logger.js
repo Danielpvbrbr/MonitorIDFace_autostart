@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
 
-// garante a pasta de logs
 const logDir = path.join(__dirname, 'logs');
 if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
@@ -11,14 +10,16 @@ if (!fs.existsSync(logDir)) {
 
 const logFile = path.join(logDir, 'app.log');
 
+const streams = [
+    { stream: process.stdout }, // console
+    { stream: pino.destination({ dest: logFile, sync: false }) } // arquivo
+];
+
 const logger = pino(
     {
         timestamp: pino.stdTimeFunctions.isoTime,
     },
-    pino.destination({
-        dest: logFile,
-        sync: false // melhor performance
-    })
+    pino.multistream(streams)
 );
 
 module.exports = { logger };

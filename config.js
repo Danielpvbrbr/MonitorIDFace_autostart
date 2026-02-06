@@ -1,11 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 
-const CONFIG_PATH = path.join(process.env.APPDATA || ".", "MonitorFacialIDFace", "config.json");
+// MUDANÇA AQUI: Usa __dirname para salvar na mesma pasta do script
+const CONFIG_PATH = path.join(__dirname, "config.json");
 
 function saveConfig(config) {
-    const dir = path.dirname(CONFIG_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    // Removemos a verificação de pasta, pois __dirname sempre existe
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 

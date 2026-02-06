@@ -6,8 +6,8 @@ const { deleteUser } = require("./deleteUser");
 const { searchInativePeriod } = require("./searchInativePeriod");
 const { loadConfig } = require("../config");
 const { logger } = require("../logger");
+const { photo_ } = require("../getPhoto")
 
-// Importa o p-limit (certifique-se de ter instalado: npm install p-limit)
 const pLimit = require('p-limit');
 
 const config = loadConfig();
@@ -15,11 +15,11 @@ let DBName = config?.DB_DATABASE;
 
 // --- CONFIGURAÇÕES DE PERFORMANCE ---
 // Quantos equipamentos processar SIMULTANEAMENTE (Ex: 50 equipamentos ao mesmo tempo)
-const CONCURRENCY_EQUIPAMENTOS = 50; 
+const CONCURRENCY_EQUIPAMENTOS = 50;
 
 // Quantos comandos enviar SIMULTANEAMENTE para o MESMO equipamento (Cuidado: Hardware embarcado é fraco)
 // 2 é um número seguro. Se aumentar muito, o equipamento pode travar.
-const CONCURRENCY_COMANDOS_POR_EQUIP = 2; 
+const CONCURRENCY_COMANDOS_POR_EQUIP = 2;
 
 const BLOCKED_IPS = ['3.3.3.3', '6.6.6.6', '4.4.4.4', '5.5.5.5', '1.1.1.1'];
 let isProcessing = false;
@@ -50,16 +50,19 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
     try {
         if (COMANDO === "inc_usuario") {
             const [rowsPessoa] = await conn.query(
-                `SELECT NOME, FOTO_PESSOA FROM pessoa WHERE ID_PESSOA=?`,
+                `SELECT NOME FROM pessoa WHERE ID_PESSOA=?`,
                 [ID_PESSOA]
             );
+            const folderName = config?.DB_DATABASE.split("db")[1];
+            const FOTO_PESSOA = await photo_(folderName, ID_PESSOA)
+            // console.log(FOTO_PESSOA)
 
             if (!rowsPessoa.length) {
                 await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Pessoa não encontrada');
                 return false;
             }
 
-            const { NOME, FOTO_PESSOA } = rowsPessoa[0];
+            const { NOME } = rowsPessoa[0];
             const resultado = await addUser(IP_EQUIPAMENTO, {
                 ID_PESSOA,
                 NOME,
@@ -78,7 +81,7 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
                 logger.info(`Usuário ${NOME} falha ao adicionar no ${IP_EQUIPAMENTO}`);
                 return false;
             }
-        } 
+        }
         else if (COMANDO === "exc_usuario") {
             const resultado = await deleteUser({
                 IP: IP_EQUIPAMENTO,
@@ -97,7 +100,7 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
                 await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Erro ao deletar');
                 return false;
             }
-        } 
+        }
         else {
             await marcarComoErro(conn, IP_EQUIPAMENTO, ID_PESSOA, COMANDO, 'Comando desconhecido');
             return false;
@@ -112,12 +115,12 @@ async function processarComando(conn, IP_EQUIPAMENTO, COMANDO, ID_PESSOA) {
 async function processarEquipamento(conn, IP_EQUIPAMENTO, comandos) {
     // Tenta obter sessão antes de iniciar os comandos para validar conexão
     const session = await getSession(IP_EQUIPAMENTO);
-    
+
     if (!session) {
         // Se não conecta, marca tudo como erro rapidamente e aborta
         // Usamos Promise.all para marcar no banco rápido em paralelo
-        const limitUpdate = pLimit(10); 
-        const updates = comandos.map(item => 
+        const limitUpdate = pLimit(10);
+        const updates = comandos.map(item =>
             limitUpdate(() => marcarComoErro(conn, IP_EQUIPAMENTO, item.ID_PESSOA, item.COMANDO, 'OFFLINE'))
         );
         await Promise.all(updates);
@@ -155,7 +158,7 @@ async function processar() {
 
         // 2. Limpa bloqueados
         if (BLOCKED_IPS.length > 0) {
-             await conn.query(
+            await conn.query(
                 `UPDATE controle_equipamento 
                  SET EXECUTADO='S', DATA_HORA=NOW(), LOG='IP bloqueado'
                  WHERE EXECUTADO='N' 
@@ -196,7 +199,7 @@ async function processar() {
         // 5. PROCESSAMENTO PARALELO DE EQUIPAMENTOS
         // Aqui está a mágica da velocidade. Atacamos vários IPs ao mesmo tempo.
         const limitEquip = pLimit(CONCURRENCY_EQUIPAMENTOS);
-        
+
         const promises = Array.from(equipamentosMap.entries()).map(([IP, cmds]) => {
             return limitEquip(() => processarEquipamento(conn, IP, cmds));
         });
