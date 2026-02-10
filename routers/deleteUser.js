@@ -43,7 +43,8 @@ const deleteUser = async (data) => {
         if (response.data && response.data.error) {
             throw new Error(`Equipamento retornou erro: ${JSON.stringify(response.data)}`);
         }
-
+        
+        logger.info(`Usuário ${user_id} deletado com sucesso de ${IP}`);
         //  Retorna os dados apenas se tudo deu certo
         return response.data;
 

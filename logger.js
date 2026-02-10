@@ -17,7 +17,22 @@ const streams = [
 
 const logger = pino(
     {
-        timestamp: pino.stdTimeFunctions.isoTime,
+        timestamp: () => {
+            // Cria a data formatada para o fuso de Brasília
+            const dataBrasilia = new Date().toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo", // Define o fuso horário
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false // Formato 24h
+            });
+            
+            // O Pino exige que se retorne a string com a chave "time"
+            return `,"time":"${dataBrasilia}"`;
+        },
     },
     pino.multistream(streams)
 );

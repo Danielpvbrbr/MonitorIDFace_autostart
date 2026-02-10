@@ -109,7 +109,7 @@ function startServer(app) {
 
         // 1. Loop Rápido (Comandos): Roda a cada 5 segundos
         // Atenção: Só chame isso UMA vez aqui dentro
-        setInterval(processar, 5 * TIME);
+        setInterval(processar, 2 * TIME);
 
         // 2. Loop Lento (Logins): Roda a cada 60 segundos (1 minuto)
         setInterval(cicloDeLogin, 60000);
