@@ -67,15 +67,11 @@ async function cicloDeLogin() {
                     const sessionToken = response.data.session;
                     global.sessionsMap.set(IP, sessionToken);
 
-                    // 2. BUSCA USUÁRIOS SEM FOTO (Timestamp NULL ou 0)
-                    const resSemFoto = await axios.post(
+                    // 2. BUSCA USUÁRIOS Total Users (Timestamp NULL ou 0)
+                    const resUsersTotal = await axios.post(
                         `http://${IP}/load_objects.fcgi?session=${sessionToken}`,
                         {
-                            object: "users",
-                            where: [
-                                { object: "users", field: "image_timestamp", operator: "IS NULL", value: "", connector: "OR" },
-                                { object: "users", field: "image_timestamp", operator: "=", value: 0 }
-                            ]
+                            object: "users"
                         },
                         { headers: { "Content-Type": "application/json" }, timeout: 15000 }
                     );
@@ -93,16 +89,16 @@ async function cicloDeLogin() {
                     );
 
                     // CALCULA QUANTIDADES (Com proteção para array vazio)
-                    const listaSemFoto = resSemFoto.data && resSemFoto.data.users ? resSemFoto.data.users : [];
+                    const listaSemFoto = resUsersTotal.data && resUsersTotal.data.users ? resUsersTotal.data.users : [];
                     const qtdSemFoto = listaSemFoto.length;
 
                     const listaComFoto = resComFoto.data && resComFoto.data.users ? resComFoto.data.users : [];
                     const qtdComFoto = listaComFoto.length;
 
-                    console.log(`[${IP}] OK | Sem Foto: ${qtdSemFoto} | Com Foto: ${qtdComFoto}`);
+                    console.log(`[${IP}] OK | Total Users: ${qtdSemFoto} | Com Foto: ${qtdComFoto}`);
 
                     // 4. ATUALIZA O BANCO COM TUDO DE UMA VEZ
-                    // Mapeamento conforme seu pedido: QTD_USUARIO = Sem Foto, QTD_FACE = Com Foto
+                    // Mapeamento conforme seu pedido: QTD_USUARIO = Total Users, QTD_FACE = Com Foto
                     await conn.query(
                         `UPDATE equipamento SET GUI_FACIAL=?, QTD_USUARIO=?, QTD_FACE=? WHERE NR_IP=?`,
                         [sessionToken, qtdSemFoto, qtdComFoto, IP]
