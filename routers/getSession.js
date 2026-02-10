@@ -1,14 +1,14 @@
-const { login } = require("./login");
 /**
- * Obtém ou cria uma sessão para um equipamento
- * @param {string} IP - Endereço IP do equipamento
- * @returns {string|null} Token de sessão
+ * Obtém o token da memória global.
+ * Não faz requisições de rede. Quem alimenta isso é o cicloDeLogin.
+ * @param {string} IP 
+ * @returns {string|null}
  */
 async function getSession(IP) {
-  if (!global.sessionsMap.has(IP)) { //  usa global
-    login(IP);
-  }
-  return global.sessionsMap.get(IP); //  usa global
+    if (global.sessionsMap.has(IP)) {
+        return global.sessionsMap.get(IP);
+    }
+    return null;
 }
 
 module.exports = { getSession };

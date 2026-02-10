@@ -3,6 +3,7 @@ const { saveConfig, loadConfig } = require("./config");
 const { processar } = require("./routers/processar");
 const { connection } = require("./db");
 const { version } = require("./package.json");
+const { cicloDeLogin } = require("./routers/login");
 
 let TIME = 1000;
 
@@ -84,16 +85,17 @@ async function promptConfig(app) {
 function startServer(app) {
     const config = loadConfig();
 
-    // Proteção caso config seja nulo
+    // 1. Proteção: Verifica config ANTES de tentar usar
     if (!config) {
-        console.error("Erro: Tentativa de iniciar servidor sem configuração.");
+        console.error(colors.red + "Erro: Tentativa de iniciar servidor sem configuração." + colors.reset);
         return;
     }
 
     let PORT = config.PORT;
 
+    // Inicia o servidor Express
     app.listen(PORT, () => {
-        // Removido console.clear() para não apagar logs do serviço
+        // --- LOGS DE INICIALIZAÇÃO ---
         console.log(colors.cyan + "\n╔════════════════════════════════════════════╗" + colors.reset);
         console.log(colors.cyan + `║       MONITOR FACIAL IDFACE - v${version}       ║` + colors.reset);
         console.log(colors.cyan + "╚════════════════════════════════════════════╝\n" + colors.reset);
@@ -101,11 +103,19 @@ function startServer(app) {
         console.log(colors.green + "   Servidor iniciado com sucesso!\n" + colors.reset);
         console.log(`   Porta: ${colors.yellow}${PORT}${colors.reset}`);
         console.log(`   Database: ${colors.yellow}${config.DB_DATABASE}${colors.reset}`);
-        console.log(`   Login: ${colors.cyan}${config.LOGIN}${colors.reset}`);
-        console.log(`   Processamento: a cada ${TIME * 5}ms\n`);
+        console.log(`   Login Equipamentos: ${colors.cyan}${config.LOGIN}${colors.reset}`);
+        console.log(`   Processamento Comandos: a cada ${5 * TIME}ms`);
+        console.log(`   Renovação de Tokens: a cada 1 minuto\n`);
 
-        // Loop principal do sistema
+        // 1. Loop Rápido (Comandos): Roda a cada 5 segundos
+        // Atenção: Só chame isso UMA vez aqui dentro
         setInterval(processar, 5 * TIME);
+
+        // 2. Loop Lento (Logins): Roda a cada 60 segundos (1 minuto)
+        setInterval(cicloDeLogin, 60000);
+
+        // 3. Executa o login imediatamente ao ligar (para não esperar 1 min na primeira vez)
+        cicloDeLogin();
     });
 }
 

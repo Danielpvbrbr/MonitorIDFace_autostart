@@ -1,5 +1,6 @@
 const axios = require('axios');
-const { logger } = require("./logger")
+const sharp = require('sharp'); // Importar o sharp
+const { logger } = require("./logger");
 
 async function photo_(folderName, fileName) {
     const start = Date.now();
@@ -12,12 +13,31 @@ async function photo_(folderName, fileName) {
             { responseType: 'arraybuffer', timeout: 10000 }
         );
 
-        const base64 = Buffer.from(response.data, 'binary').toString('base64');
+        // --- INÍCIO DA OTIMIZAÇÃO ---
+        
+        // Processa o buffer original com o Sharp
+        const optimizedBuffer = await sharp(response.data)
+            .resize({ 
+                width: 800,           // Reduz a largura para 800px
+                withoutEnlargement: true // Não aumenta se a imagem já for pequena
+            })
+            .jpeg({ 
+                quality: 70,          // Define qualidade em 70% (reduz muito o peso)
+                progressive: true     // Melhora carregamento em conexões lentas
+            })
+            .toBuffer();
+
+        // --- FIM DA OTIMIZAÇÃO ---
+
+        const base64 = optimizedBuffer.toString('base64');
 
         const duration = Date.now() - start;
-        const sizeKb = (response.data.length / 1024).toFixed(2);
-
-        logger.info(`OK | ${folderName}/${fileName} | ${sizeKb} KB | ${duration} ms`);
+        // Calcula o tamanho da imagem JÁ otimizada
+        const sizeKb = (optimizedBuffer.length / 1024).toFixed(2);
+        
+        // Opcional: Calcular quanto economizou (apenas para debug)
+        const originalSizeKb = (response.data.length / 1024).toFixed(2);
+        logger.info(`OK | ${folderName}/${fileName} | Otimizado: ${sizeKb} KB (Original: ${originalSizeKb} KB) | ${duration} ms`);
 
         return base64;
 

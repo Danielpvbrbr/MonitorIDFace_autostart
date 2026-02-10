@@ -3,7 +3,6 @@ const axios = require(path.join(__dirname, '..', 'node_modules', 'axios', 'dist'
 
 const { getSession } = require("./getSession")
 
-
 const listTodos = async (IP) => {
     if (!IP) {
         throw new Error("IP é obrigatório");
